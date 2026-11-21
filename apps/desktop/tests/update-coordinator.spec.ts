@@ -66,7 +66,9 @@ function fixture(
   const beforeRestart = vi.fn(async () => true)
   const downloadResult = vi.fn()
   const states: DesktopUpdateState[] = []
-  const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }, extra) as unknown as AppUpdater
+  const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }) as unknown as AppUpdater
+  if (extra.httpExecutor !== undefined) Object.assign(updater, { httpExecutor: extra.httpExecutor })
+  if (extra.desktopTransport !== undefined) Object.assign(updater, { desktopTransport: extra.desktopTransport })
   const probe = updater as AppUpdater & { httpExecutor?: object }
   const coordinator = new DesktopUpdateCoordinator(
     (state) => { states.push(state); return state },
