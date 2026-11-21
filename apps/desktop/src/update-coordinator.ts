@@ -14,6 +14,18 @@ import { discardDesktopUpdate } from './updates/electron-updater/discard.ts'
 
 const { autoUpdater } = electronUpdater
 
+/**
+ * Whether an updater opts in to the desktop HTTP transport.
+ * The portable updater declares this so its downloads use the same executor as
+ * the installed build; `electron-updater` subclasses that stay silent keep their
+ * own transport.
+ * @param updater - Updater under test.
+ * @returns Whether the coordinator may install the desktop transport.
+ */
+function acceptsDesktopTransport(updater: AppUpdater): boolean {
+  return (updater as AppUpdater & { desktopTransport?: boolean }).desktopTransport === true
+}
+
 /** Owns one updater target until its download and installation settle. */
 export class DesktopUpdateCoordinator {
   private current: DesktopUpdateState = { phase: 'idle' }
@@ -67,7 +79,7 @@ export class DesktopUpdateCoordinator {
     private channel: DesktopUpdateChannel = 'nightly',
     private readonly discard: (updater: AppUpdater) => Promise<void> = discardDesktopUpdate,
   ) {
-    if (updater === autoUpdater) {
+    if (updater === autoUpdater || acceptsDesktopTransport(updater)) {
       // electron-updater omits this internal transport property from its public declarations.
       // Real-Electron qualification exercises the pinned dependency integration.
       const transportOwner = updater as AppUpdater & { httpExecutor: DesktopUpdateHttpExecutor }

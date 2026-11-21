@@ -22,6 +22,7 @@ Desktop 在原生应用中运行 Harness 工作区。本参考文档说明应用
 - [开发](#develop)
 - [打包](#package)
 - [Windows 安装界面](#windows-installer-interface)
+- [便携版](#portable-edition)
 - [更新](#updates)
 - [底层开发覆盖项](#low-level-development-overrides)
 - [已知限制](#known-limitations)
@@ -270,6 +271,16 @@ Windows 打包使用 Visual C++ Build Tools 和 Windows SDK 编译 x86 Win32/GDI
 Windows 卸载程序会随应用一起删除 Electron 用户数据目录（`%APPDATA%` 下按包作用域嵌套的浏览器存储与缓存）、`%APPDATA%` 下的产品目录，以及 `%LOCALAPPDATA%` 下的更新下载缓存，随后移除 `%APPDATA%` 之下普通且已空的作用域目录。Harness 主目录（`~/.dsh` 或 `DSH_HOME`：会话、设置、凭据、插件）不会被触碰；以 Windows 环境变量发布的 `DSH_HOME` 还会保护所有与其重叠的目标。静默卸载删除相同的数据；以 `--updated` 或 `/KEEP_APP_DATA` 启动的卸载程序保留数据，electron-builder 在原地更新和从其他目录替换旧安装时正是这样启动它。删除通过原生辅助程序执行：它拒绝受保护的 Windows 目录以及与安装目录或主目录重叠的路径，要求固定的本地驱动器，链接的根目录或祖先目录原样保留，遇到重解析点只解除链接而不进入目标，清除只读属性，并在遇到被占用文件后继续删除其余兄弟项；残余不会中止卸载，也不会提示。安装时在 Windows 卸载注册项上记录 `InstallLocation` 作为标准的清单元数据；在 Windows 11 上，开始菜单右键菜单中的“卸载”对所有 Win32 应用都会打开已安装应用列表，只有 MSIX 包能从那里直接卸载。卸载程序声明 DPI 感知，中文使用微软雅黑 UI。此行为仅适用于 Windows。
 
 使用 `node apps/desktop/scripts/test-windows-installer.mjs --uninstall-only --compile-only` 以每次运行唯一的带作用域包名编译独立的中英文夹具。省略 `--compile-only` 可对预置数据运行原生删除器回归，以及交互、静默、`--updated`、`/KEEP_APP_DATA` 和 `DSH_HOME` 位于 Electron 数据内的检查。编译本身不能证明已安装卸载行为。
+
+<a id="portable-edition"></a>
+
+## 便携版
+
+应用旁边（或再上一级目录）存在 `portable.json` 时启用 Windows 便携版。`initializePortableDesktop` 会在 `main.ts` 第一次调用 `app.getPath` 之前，把 Harness home、Electron 的 `userData`/`sessionData`/日志/崩溃转储/临时目录/下载目录、Chromium HTTP 缓存，以及 npm、pnpm、Python 缓存重定向到该卷上，在该卷剩余空间不足 512 MiB 时告警，并停止需要用户配置目录的写入：协议注册、登录项、快捷方式、`dsh` 的 PATH 项和崩溃报告器。已交付的行为见[便携版指南](../../docs/user/guide/desktop-portable.zh.md)。
+
+`apps/desktop/src/portable/` 负责根目录识别、清单、布局、环境变量、启动迁移、已记录路径的搬迁、快照、安装与更新事务。`bootstrap.ts` 同步执行，使 Electron 无法在重定向之前创建目录；`layout.ts` 从 `process.execPath` 重新推导每个路径，因此更换盘符无需修改任何配置；`relocation.ts` 在盘符变化后改写已记录的根与会话头；`backup.ts` 复制并恢复 Harness home；`install.ts` 在向卷上复制之前先校验该卷；`apply.ts` 由脱离的 Node 帮手完成目录替换，因为正在运行的应用无法重命名装着自身代码的目录。`portable.json` 从不保存绝对路径，更新也从不重写它。
+
+`pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable` 经 `apps/desktop/scripts/portable-assembly.ts` 组装便携版：把解包后的 Windows 构建复制到 `app\`，写入清单，创建数据目录并归档结果。`scripts/portable-install.ts` 在校验目标之后把该载荷复制到可移动卷，`src/portable/snapshot-cli.ts` 用于列出、创建与恢复整卷快照。
 
 <a id="updates"></a>
 

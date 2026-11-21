@@ -22,6 +22,7 @@ Desktop runs the Harness workspace in a native application. This reference cover
 - [Develop](#develop)
 - [Package](#package)
 - [Windows installer interface](#windows-installer-interface)
+- [Portable edition](#portable-edition)
 - [Updates](#updates)
 - [Low-level development overrides](#low-level-development-overrides)
 - [Known limitations](#known-limitations)
@@ -270,6 +271,16 @@ Run `pnpm --dir apps/desktop run test:installer` from the repository root on an 
 The Windows uninstaller removes the Electron user-data directory (browser storage and caches under `%APPDATA%`, nested under the package scope), the `%APPDATA%` product directory, and the updater download cache under `%LOCALAPPDATA%` together with the application, then removes ordinary empty scope directories below `%APPDATA%`. The Harness home (`~/.dsh` or `DSH_HOME`: sessions, settings, credentials, plugins) is never touched, and a `DSH_HOME` published as a Windows environment variable additionally protects any target overlapping it. Silent uninstalls remove the same data; an uninstaller started with `--updated` or `/KEEP_APP_DATA`, as electron-builder does for in-place updates and for replacing an older installation from another directory, retains it. Removal runs through the native helper, which refuses protected Windows folders and paths overlapping the installation or the home, requires a fixed local drive, leaves a linked root or ancestor in place, unlinks reparse points without entering their targets, clears read-only attributes, and keeps deleting siblings after a locked file; residue never stops uninstallation and is not reported. Installation records `InstallLocation` on the Windows uninstall entry as standard inventory metadata; on Windows 11, Uninstall in the Start menu context menu opens the installed-apps list for every Win32 application, and only MSIX packages uninstall directly from there. The uninstaller declares DPI awareness and uses Microsoft YaHei UI for Chinese. This behavior is Windows-only.
 
 Use `node apps/desktop/scripts/test-windows-installer.mjs --uninstall-only --compile-only` to compile isolated English and Chinese fixtures with a per-run scoped package name. Omit `--compile-only` to run the native remover regression and the interactive, silent, `--updated`, `/KEEP_APP_DATA` and `DSH_HOME`-inside-Electron-data checks against seeded data. Compilation does not establish installed-uninstall behavior.
+
+<a id="portable-edition"></a>
+
+## Portable edition
+
+A `portable.json` beside the application, or one directory above it, enables the Windows portable edition. `initializePortableDesktop` redirects the Harness home, Electron `userData`/`sessionData`/logs/crash dumps/temp/downloads, the Chromium HTTP cache, and the npm, pnpm, and Python caches onto the volume before the first `app.getPath` call in `main.ts`, warns when the volume holds less than 512 MiB, and it stops the writes that need a user profile: protocol registration, login items, shortcuts, the `dsh` PATH entry, and the crash reporter. The [portable edition guide](../../docs/user/guide/desktop-portable.md) covers the shipped behavior.
+
+`apps/desktop/src/portable/` owns root discovery, the manifest, the layout, the environment, startup migration, relocation of recorded paths, snapshots, installation, and the update transaction. `bootstrap.ts` runs synchronously so Electron cannot create a directory before the redirect, `layout.ts` re-derives every path from `process.execPath` so a new drive letter needs no edit, `relocation.ts` rewrites recorded roots and session headers after a letter change, `backup.ts` copies and restores the Harness home, `install.ts` checks a volume before copying onto it, and `apply.ts` swaps the application from a detached Node helper because the running application cannot rename the directory holding its own code. `portable.json` never stores an absolute path and an update never rewrites it.
+
+`pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable` assembles the edition through `apps/desktop/scripts/portable-assembly.ts`, which copies the unpacked Windows build to `app\`, writes the manifest, creates the data directories, and archives the result. `scripts/portable-install.ts` copies that payload onto a removable volume after checking the target, and `src/portable/snapshot-cli.ts` lists, creates, and restores whole-home snapshots.
 
 <a id="updates"></a>
 

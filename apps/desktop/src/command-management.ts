@@ -37,6 +37,8 @@ export interface CommandManagerOptions {
   readonly resources: string
   readonly isPackaged: boolean
   readonly isInstalledLocation: () => boolean
+  /** Whether this launch runs from a portable volume, where PATH is never edited. */
+  readonly isPortable: () => boolean
   readonly isInstalling: () => boolean
   readonly isQuitting: () => boolean
   readonly messages: () => DesktopMessages
@@ -182,6 +184,12 @@ export class DesktopCommandManager {
 
   private async run(): Promise<void> {
     const messages = this.options.messages()
+    // The Windows command entry is a user PATH value under HKCU\Environment, and the portable
+    // edition keeps the host registry untouched, so it offers the folder instead.
+    if (this.options.isPortable()) {
+      await this.options.show({ type: 'info', title: messages.cliCommandTitle, message: messages.cliCommandPortable, buttons: [messages.cliCommandClose] })
+      return
+    }
     if (!this.options.isPackaged || !this.options.isInstalledLocation()) {
       await this.options.show({ type: 'info', title: messages.cliCommandTitle, message: messages.cliCommandInstallApp, buttons: [messages.cliCommandClose] })
       return

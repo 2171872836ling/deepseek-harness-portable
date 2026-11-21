@@ -47,7 +47,10 @@ describe('desktop release metadata', () => {
 const coordinators: InstanceType<typeof DesktopUpdateCoordinator>[] = []
 afterEach(() => { for (const item of coordinators.splice(0)) item.dispose() })
 
-function fixture(channel: 'nightly' | 'stable' = 'nightly', version = '1.1.0-alpha.1', discard?: (updater: AppUpdater) => Promise<void>) {
+function fixture(
+  channel: 'nightly' | 'stable' = 'nightly', version = '1.1.0-alpha.1', discard?: (updater: AppUpdater) => Promise<void>,
+  extra: { desktopTransport?: boolean; httpExecutor?: object } = {},
+) {
   const events = new EventEmitter()
   const checkForUpdates = vi.fn(async () => ({
     isUpdateAvailable: true,
@@ -63,13 +66,14 @@ function fixture(channel: 'nightly' | 'stable' = 'nightly', version = '1.1.0-alp
   const beforeRestart = vi.fn(async () => true)
   const downloadResult = vi.fn()
   const states: DesktopUpdateState[] = []
-  const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }) as unknown as AppUpdater
+  const updater = Object.assign(events, { checkForUpdates, downloadUpdate, quitAndInstall }, extra) as unknown as AppUpdater
+  const probe = updater as AppUpdater & { httpExecutor?: object }
   const coordinator = new DesktopUpdateCoordinator(
     (state) => { states.push(state); return state },
     beforeRestart, updater, () => true, () => version, downloadResult, channel, discard,
   )
   coordinators.push(coordinator)
-  return { coordinator, updater, events, states, checkForUpdates, downloadUpdate, quitAndInstall, beforeRestart, downloadResult }
+  return { coordinator, updater, probe, events, states, checkForUpdates, downloadUpdate, quitAndInstall, beforeRestart, downloadResult }
 }
 
 describe('desktop update coordinator', () => {
@@ -448,4 +452,19 @@ it('does not diagnose a filesystem cause from error wording alone', async () => 
   await f.coordinator.check()
   f.downloadUpdate.mockRejectedValueOnce(new Error('ENOSPC or EACCES in a remote response'))
   expect((await f.coordinator.download('1.1.0-rc.2')).downloadFailure).toBeUndefined()
+})
+
+describe('portable updater transport', () => {
+  it('bounds silent connections for an updater that requests the desktop transport', () => {
+    const sentinel = {}
+    const f = fixture('nightly', '1.1.0', undefined, { desktopTransport: true, httpExecutor: sentinel })
+    expect(f.probe.httpExecutor).toBeDefined()
+    expect(f.probe.httpExecutor).not.toBe(sentinel)
+  })
+
+  it('leaves a foreign updater transport alone without the flag', () => {
+    const sentinel = {}
+    const f = fixture('nightly', '1.1.0', undefined, { httpExecutor: sentinel })
+    expect(f.probe.httpExecutor).toBe(sentinel)
+  })
 })

@@ -7,8 +7,10 @@ import { DesktopUpdateSettings } from './update-settings.ts'
 import { isDesktopUpdateChannel } from './settings-file.ts'
 import type { ProductEventMap, ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
+import { spawn } from 'node:child_process'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import {
   app,
@@ -71,6 +73,46 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import {
+  createPortableSnapshot,
+  createPortableUpdater,
+  findPortableInstaller,
+  initializePortableDesktop,
+  migrateIntoPortable,
+  migrationCandidates,
+  portableUpdateDownloads,
+  portableUserData,
+  relocatePortableState,
+  schedulePortableUpdate,
+  settlePortableUpdate,
+  stalePortableRoots,
+} from './portable/index.ts'
+
+/**
+ * Portable redirection, applied before this module reads any path Electron
+ * derives: `userData`, `logs`, and `temp` are fixed during module evaluation,
+ * and `windowsLanguage` below already reads the locale cache from `userData`.
+ * A portable volume that cannot be used stops startup here rather than letting
+ * the harness write to the host disk.
+ */
+const portable = initializePortableDesktop({
+  app: {
+    getPath: name => app.getPath(name),
+    setPath: (name, path) => { app.setPath(name, path) },
+  },
+  commandLine: { appendSwitch: (name, value) => { app.commandLine.appendSwitch(name, value) } },
+  execPath: process.execPath,
+  env: process.env,
+})
+if (portable.kind === 'failed') {
+  dialog.showErrorBox('DeepSeek Harness', portable.message)
+  process.exit(1)
+}
+/** Whether this launch runs from a removable volume with redirected paths. */
+const portableMode = portable.kind === 'active'
+/** Portable layout of this launch, absent for a conventional installation. */
+const portableLayout = portable.kind === 'active' ? portable.layout : undefined
+for (const warning of portable.kind === 'active' ? portable.warnings : []) console.warn(warning)
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => { await stopOperationReports() }
@@ -91,8 +133,9 @@ let backendReady = false
 const rendererConsole = new RendererConsoleTail()
 
 // Platform-conventional logs directory (macOS ~/Library/Logs/<name>, otherwise under userData);
-// set before ready so the first fatal report already resolves under it.
-app.setAppLogsPath()
+// set before ready so the first fatal report already resolves under it. Portable mode already
+// pointed `logs` at the portable volume, and Electron's platform default would move it off the volume.
+if (!portableMode) app.setAppLogsPath()
 
 function currentDesktopLocale(): ReturnType<typeof resolveDesktopLocale> {
   return resolveDesktopLocale(windowsLanguage ?? app.getLocale())
@@ -379,6 +422,47 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
 }
 
 async function main(): Promise<void> {
+  if (portable.kind === 'active') {
+    const layout = portable.layout
+    // A record left by the previous launch decides whether the update installed, never landed,
+    // or left a state only a reinstall can resolve.
+    const settled = await settlePortableUpdate({ layout, currentVersion: app.getVersion() })
+    if (settled.kind !== 'none') console.info('portable update:', settled.kind)
+    const migration = await migrateIntoPortable({
+      layout,
+      sources: migrationCandidates({
+        home: homedir(),
+        ...(process.env.APPDATA === undefined ? {} : { appData: process.env.APPDATA }),
+        productName: app.getName(),
+        layout,
+        userData: portableUserData(layout),
+      }),
+      userData: portableUserData(layout),
+    })
+    if (migration.kind === 'migrated') console.info('portable migration:', { imported: migration.imported.length, failures: migration.failures.length })
+    if (migration.kind === 'rolled-back') console.warn('portable migration rolled back:', migration.failures)
+    // State written while the volume was mounted under an earlier drive letter still names that
+    // letter; rewrite it to the running root before the harness host opens it. The rewrite edits
+    // durable state, so a full snapshot is taken first and kept on the volume.
+    const staleRoots = stalePortableRoots(portable.config, layout.root)
+    if (staleRoots.length > 0) {
+      try {
+        const snapshot = await createPortableSnapshot({ layout, reason: `before relocating ${staleRoots.join(', ')}` })
+        console.info('portable snapshot:', { directory: snapshot.directory, files: snapshot.files })
+      } catch (error) {
+        console.warn('portable snapshot before relocation failed:', error instanceof Error ? error.message : String(error))
+      }
+    }
+    const relocation = await relocatePortableState({ layout, config: portable.config, root: layout.root })
+    if (relocation.kind === 'relocated') {
+      console.info('portable relocation:', {
+        roots: relocation.roots,
+        files: relocation.files.length,
+        groups: relocation.groups.length,
+        skipped: relocation.skipped.length,
+      })
+    }
+  }
   const desktopSettings = await readDesktopSettings(app.getPath('userData'))
   void pruneCrashReports(app.getPath('logs'))
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
@@ -480,6 +564,7 @@ async function main(): Promise<void> {
     resources: process.resourcesPath,
     isPackaged: app.isPackaged,
     isInstalledLocation: () => process.platform !== 'darwin' || app.isInApplicationsFolder(),
+    isPortable: () => portableMode,
     isInstalling: () => updateState.phase === 'installing',
     isQuitting,
     messages: () => currentDesktopLocale().messages,
@@ -702,6 +787,49 @@ async function main(): Promise<void> {
     packagedChannel, changing: false,
     ...(initialChannel.kind === 'error' ? { error: configurationFailure(initialChannel.error) } : {}) }
   const updateChannel = initialChannel.kind === 'ready' ? initialChannel.channel : packagedChannel
+  // The running shell cannot rename its own application directory, so a portable update is
+  // handed to a detached helper that waits for this process to exit and then swaps the
+  // directories. Electron's in-place NSIS installer would also write the uninstall key.
+  const installPortableUpdate = async (): Promise<void> => {
+    if (portableLayout === undefined) return
+    const version = updates.state.version
+    if (version === undefined || version === '') throw new Error('desktop update: no downloaded version to install')
+    await schedulePortableUpdate({
+      layout: portableLayout,
+      fromVersion: app.getVersion(),
+      toVersion: version,
+      installerPath: await findPortableInstaller(portableUpdateDownloads(portableLayout), version),
+      relaunchExecutable: process.execPath,
+      helperExecutable: process.execPath,
+      spawn: (command, args, environment) => {
+        spawn(command, [...args], { detached: true, stdio: 'ignore', env: { ...process.env, ...environment } }).unref()
+      },
+    })
+    app.exit(0)
+  }
+  const portableUpdater = portableLayout === undefined
+    ? undefined
+    : createPortableUpdater({
+      layout: portableLayout,
+      adapter: {
+        version: app.getVersion(),
+        name: app.getName(),
+        isPackaged: app.isPackaged,
+        appUpdateConfigPath: join(process.resourcesPath, 'app-update.yml'),
+        userDataPath: app.getPath('userData'),
+        whenReady: () => app.whenReady(),
+        relaunch: () => { app.relaunch() },
+        quit: () => { app.quit() },
+        onQuit: (handler) => { app.once('quit', (_event, exitCode) => { handler(exitCode) }) },
+      },
+      install: () => {
+        void installPortableUpdate().catch((error: unknown) => {
+          console.error(error)
+          dialog.showErrorBox('DeepSeek Harness', error instanceof Error ? error.message : String(error))
+          app.exit(1)
+        })
+      },
+    })
   const updates = new DesktopUpdateCoordinator(
     publishUpdate,
     async () => {
@@ -757,7 +885,7 @@ async function main(): Promise<void> {
       }
       return true
     },
-    undefined, undefined, undefined,
+    portableUpdater, undefined, undefined,
     (success, reason) => { void track('desktop_upgrade_download_result', { is_success: success, ...reason === undefined ? {} : { error_reason: reason } }) },
     updateChannel,
   )
@@ -1485,7 +1613,9 @@ async function main(): Promise<void> {
     window.focus()
   }
 
-  if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient('dsh')
+  // Registering the scheme writes HKCU\Software\Classes, so a portable installation stays unregistered:
+  // `dsh://` links keep resolving to an installed copy, and the removable volume leaves no trace on the host.
+  if (!portableMode && (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1')) app.setAsDefaultProtocolClient('dsh')
   app.on('open-url', (event, url) => {
     event.preventDefault()
     if (url === 'dsh://open' || url === 'dsh://open/') focusPrimaryWindow()

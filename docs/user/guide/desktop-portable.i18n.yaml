@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for desktop-portable.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/user/guide/desktop-portable.md
+/portable-edition-windows:
+  en: 96ce46582b27dc41
+  zh: e869eb27d8e265f5
+/portable-edition-windows/1-what-the-portable-edition-is:
+  en: 10791fd01ad0fcf0
+  zh: e44455ff2f5eab9e
+/portable-edition-windows/2-the-portable-json-manifest:
+  en: 8c6607c92c6b6fb6
+  zh: 377b3e9e5b1981d5
+/portable-edition-windows/3-what-moves-onto-the-drive:
+  en: 56adcffa7eec0a4c
+  zh: a9ee9ec0e863b596
+/portable-edition-windows/4-updates:
+  en: c98d4b1339c66d3c
+  zh: eebe65c974ece016
+/portable-edition-windows/5-migrating-an-existing-installation:
+  en: 787818abd02e121c
+  zh: 6d0d92efdeedd70e
+/portable-edition-windows/5-migrating-an-existing-installation/relocating-recorded-paths:
+  en: 54be75f4e6b99d98
+  zh: 6b03a06dd40187c0
+/portable-edition-windows/6-backups-and-restore:
+  en: c09359bd5268a640
+  zh: 36d3a38fdb7606fb
+/portable-edition-windows/7-installing-onto-a-removable-drive:
+  en: 15e64713e45eed22
+  zh: 4a61211f060567e5
+/portable-edition-windows/8-building-a-portable-edition:
+  en: 413b349d26add301
+  zh: 3d9ad8774ff1434b
+/portable-edition-windows/9-troubleshooting:
+  en: fbcc25a9c77a364c
+  zh: 3ae4ab84b81f2a72

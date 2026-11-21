@@ -2,7 +2,8 @@
 
 import { expect, it } from 'vitest'
 import { en, zh } from '../src/locale.ts'
-import { presentCommandManagement } from '../src/command-management.ts'
+import { DesktopCommandManager, presentCommandManagement } from '../src/command-management.ts'
+import type { UpdateDialogOptions } from '../src/update-dialog.ts'
 
 it.each([en, zh])('shows installation, repair/removal and shadowed command locations', (messages) => {
   const destination = '/usr/local/bin/dsh'
@@ -36,4 +37,21 @@ it.each([
   await expect(JSON.stringify({
     dialogs: states.map(state => presentCommandManagement(state, messages, platform)),
   }, null, 2) + '\n').toMatchFileSnapshot(`./expected/command-management-${platform}-${language}.json`)
+})
+
+it.each([en, zh])('offers the drive folder instead of editing PATH in the portable edition', async (messages) => {
+  const shown: UpdateDialogOptions[] = []
+  const manager = new DesktopCommandManager({
+    resources: 'C:\\portable\\app\\resources',
+    isPackaged: true,
+    isInstalledLocation: () => true,
+    isPortable: () => true,
+    isInstalling: () => false,
+    isQuitting: () => false,
+    messages: () => messages,
+    show: async (options) => { shown.push(options); return { response: 0, checkboxChecked: false } },
+  })
+  await manager.show()
+  expect(shown.map(dialog => dialog.message)).toEqual([messages.cliCommandPortable])
+  expect(shown[0]?.buttons).toEqual([messages.cliCommandClose])
 })
