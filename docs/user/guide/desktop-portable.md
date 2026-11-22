@@ -153,6 +153,7 @@ pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable
 | Startup reports an unsafe directory | A manifest field is absolute or climbs out of the portable root. Correct the field; `backup\` holds the previous manifest. |
 | `logs\portable\portable.log` reports few free bytes | Less than 512 MiB remains on the drive. Move sessions or plugin installs elsewhere, or use a larger drive; the launch itself still succeeded. |
 | Data still appears under your user profile | `portableMode` is `false`, or `portable.json` is missing and the application ran as a normal installation. |
+| A plugin writes into your user profile | Third-party plugins can build paths from `os.homedir()` themselves. The redirect covers the Harness home, the Electron paths, and the package-manager caches; it cannot rewrite a path a plugin composes on its own. Use the plugin's settings to move its data, or accept the file in the profile. |
 | Sessions from before a drive change are missing | Check `logs\portable\relocation-<timestamp>.log`; a group whose directory name did not match its recorded working directory is left in place on purpose. |
 | An update did not install | Read `logs\portable\update-<timestamp>.log`; the record in `updates\apply.json` names the staged and backup directories. |
 | Data appears outside the drive without a diagnostic | Directory containment is checked lexically, so a junction or symbolic link placed inside the portable folder points outside it. Keep the portable folder free of links. |

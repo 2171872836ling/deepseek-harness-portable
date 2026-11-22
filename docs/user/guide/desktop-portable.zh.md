@@ -153,6 +153,7 @@ pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable
 | 启动报告不安全的目录 | 清单某个字段是绝对路径或跳出了便携根。改正该字段；`backup\` 里有上一份清单。 |
 | `logs\portable\portable.log` 报告剩余空间很少 | 磁盘剩余不足 512 MiB。把会话或插件安装挪走，或换更大的磁盘；启动本身仍然成功。 |
 | 数据仍出现在用户配置目录 | `portableMode` 为 `false`，或 `portable.json` 缺失，应用按普通安装运行了。 |
+| 插件把文件写进了用户主目录 | 第三方插件可能自行用 `os.homedir()` 拼路径。重定向覆盖的是 Harness home、Electron 各路径和包管理器缓存，改不了插件自己拼出来的路径。用该插件的设置把数据位置挪走，或接受该文件留在用户配置目录。 |
 | 换盘后找不到旧会话 | 查看 `logs\portable\relocation-<时间戳>.log`；目录名与其记录的工作目录不一致的会话组会被有意留在原位。 |
 | 更新没有装上 | 读 `logs\portable\update-<时间戳>.log`；`updates\apply.json` 里的记录会给出暂存目录与备份目录。 |
 | 数据在没有诊断的情况下出现在磁盘之外 | 目录归属按字面路径判断，因此放在便携文件夹内的目录联接或符号链接会指向外部。请保持便携文件夹内没有链接。 |

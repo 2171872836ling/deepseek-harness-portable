@@ -90,18 +90,36 @@ export function migrationCandidates(options: {
 }
 
 /**
- * Whether a directory holds at least one entry.
- * @param directory - Absolute directory path.
- * @returns `true` when the directory exists and is not empty.
+ * Directories the bootstrap creates inside the harness home before any user
+ * state exists. An empty one of these says nothing about whether the volume has
+ * been used, so it must not block the import.
  */
-async function hasEntries(directory: string): Promise<boolean> {
+const BOOTSTRAP_DIRECTORIES: ReadonlySet<string> = new Set(['downloads', 'user-data'])
+
+/**
+ * Whether a directory holds state that predates this launch.
+ * Only non-empty entries count: the bootstrap pre-creates `downloads` and
+ * `user-data`, and treating those empty directories as user data would skip the
+ * import on the very launch that is supposed to perform it.
+ * @param directory - Absolute directory path.
+ * @returns `true` when the directory holds content the user would miss.
+ */
+async function holdsUserState(directory: string): Promise<boolean> {
+  let entries: string[]
   try {
-    const entries = await readdir(directory)
-    return entries.length > 0
+    entries = await readdir(directory)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
     throw error
   }
+  for (const name of entries) {
+    const path = join(directory, name)
+    const info = await stat(path)
+    if (!info.isDirectory()) return true
+    // A pre-created directory proves nothing until something lives in it.
+    if (!BOOTSTRAP_DIRECTORIES.has(name) || await holdsUserState(path)) return true
+  }
+  return false
 }
 
 /**
@@ -142,7 +160,7 @@ export async function migrateIntoPortable(options: {
 }): Promise<PortableMigration> {
   const { layout, sources, userData } = options
   const now = options.now ?? (() => new Date())
-  if (await hasEntries(layout.data) || await hasEntries(userData)) {
+  if (await holdsUserState(layout.data) || await holdsUserState(userData)) {
     return { kind: 'skipped', reason: 'data-present' }
   }
   const usable: PortableMigrationSource[] = []
@@ -177,6 +195,8 @@ export async function migrateIntoPortable(options: {
     snapshots.push({ source, files: before.files, bytes: before.bytes })
     lines.push(`described ${source.kind}: ${source.path} (${before.files} files, ${before.bytes} bytes)`)
     try {
+      // The destination's parent is created, not the destination: `cp` writes the
+      // source's contents into it, so a pre-created empty destination is correct.
       await mkdir(dirname(source.destination), { recursive: true })
       await cp(source.path, source.destination, { recursive: true, force: false, errorOnExist: false, preserveTimestamps: true })
       const after = await measureTree(source.destination)

@@ -147,6 +147,59 @@ describe('portable migration', () => {
     expect(await readFile(discarded, 'utf8')).toBe('blocker\n')
   })
 
+  it('imports over the directories the bootstrap pre-creates', async () => {
+    const layout = await temporaryLayout('dsh-portable-migration-bootstrap-')
+    const home = join(layout.root, 'home')
+    await mkdir(join(home, '.dsh', 'storages'), { recursive: true })
+    await writeFile(join(home, '.dsh', 'storages', 'workspace.json'), '{"workspaces":[]}\n', 'utf8')
+    // What initializePortableDesktop leaves behind before the import runs.
+    await mkdir(portableUserData(layout), { recursive: true })
+    await mkdir(join(layout.data, 'downloads'), { recursive: true })
+    const migration = await migrateIntoPortable({
+      layout,
+      userData: portableUserData(layout),
+      sources: migrationCandidates({ home, layout, userData: portableUserData(layout) }),
+      now: () => new Date('2026-01-02T03:04:05.000Z'),
+    })
+    expect(migration.kind).toBe('migrated')
+    if (migration.kind !== 'migrated') return
+    expect(migration.imported.map(source => source.kind)).toEqual(['harness-home'])
+    expect(await readFile(join(layout.data, 'storages', 'workspace.json'), 'utf8')).toBe('{"workspaces":[]}\n')
+  })
+
+  it('keeps a pre-created user-data directory empty until the desktop source fills it', async () => {
+    const layout = await temporaryLayout('dsh-portable-migration-userdata-')
+    const home = join(layout.root, 'home')
+    await mkdir(join(home, '.dsh'), { recursive: true })
+    await writeFile(join(home, '.dsh', 'marker.txt'), 'harness\n', 'utf8')
+    await mkdir(portableUserData(layout), { recursive: true })
+    const migration = await migrateIntoPortable({
+      layout,
+      userData: portableUserData(layout),
+      sources: migrationCandidates({ home, layout, userData: portableUserData(layout) }),
+    })
+    expect(migration.kind).toBe('migrated')
+    // The harness source must not write into data\ root twice, and the empty
+    // user-data directory must survive as a directory, not become a file.
+    expect(await readdir(portableUserData(layout))).toEqual([])
+    expect(await readdir(layout.data)).toEqual(expect.arrayContaining(['marker.txt', 'user-data']))
+  })
+
+  it('still skips when the portable home already holds a session', async () => {
+    const layout = await temporaryLayout('dsh-portable-migration-session-')
+    const home = join(layout.root, 'home')
+    await mkdir(join(home, '.dsh'), { recursive: true })
+    await writeFile(join(home, '.dsh', 'marker.txt'), 'source\n', 'utf8')
+    await mkdir(join(layout.data, 'sessions', '--group--'), { recursive: true })
+    await writeFile(join(layout.data, 'sessions', '--group--', 'session.v4.jsonl.zstd'), '', 'utf8')
+    const migration = await migrateIntoPortable({
+      layout,
+      userData: portableUserData(layout),
+      sources: migrationCandidates({ home, layout, userData: portableUserData(layout) }),
+    })
+    expect(migration).toEqual({ kind: 'skipped', reason: 'data-present' })
+  })
+
   it.skipIf(process.platform === 'win32')('rolls back when no source can be imported', async () => {
     const layout = await temporaryLayout('dsh-portable-migration-failed-')
     const home = join(layout.root, 'home')
