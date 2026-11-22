@@ -75,6 +75,23 @@ describe('portable assembly plan', () => {
   it('names the archive after the version and target', () => {
     expect(portableArtifactName('0.2.2', 'win-x64')).toBe('deepseek-harness-0.2.2-win-x64-portable.zip')
   })
+
+  it('places each shipped document beside the manifest, under its own name', () => {
+    const plan = portableAssemblyPlan({
+      unpackedDirectory: 'E:\\build\\win-unpacked',
+      destination: 'E:\\out\\portable',
+      documents: ['E:\\repo\\docs\\user\\guide\\desktop-portable.md', 'E:\\repo\\apps\\desktop\\AGENTS.md'],
+    })
+    expect(plan.documents).toEqual([
+      { from: 'E:\\repo\\docs\\user\\guide\\desktop-portable.md', to: 'E:\\out\\portable\\desktop-portable.md' },
+      { from: 'E:\\repo\\apps\\desktop\\AGENTS.md', to: 'E:\\out\\portable\\AGENTS.md' },
+    ])
+  })
+
+  it('ships no documents when none are listed', () => {
+    const plan = portableAssemblyPlan({ unpackedDirectory: 'E:\\build\\win-unpacked', destination: 'E:\\out\\portable' })
+    expect(plan.documents).toEqual([])
+  })
 })
 
 describe('portable assembly', () => {
@@ -119,6 +136,37 @@ describe('portable assembly', () => {
     const unpacked = join(workspace, 'win-unpacked')
     await writePackaged(unpacked, { name: 'dsh-desktop' })
     await expect(readUnpackedVersion(unpacked)).rejects.toThrow(/declares no version/u)
+  })
+
+  it('copies the documents it ships into the edition root', async () => {
+    const workspace = await temporaryRoot('dsh-portable-documents-')
+    const unpacked = join(workspace, 'win-unpacked')
+    await writeUnpacked(unpacked, '0.2.2')
+    const guide = join(workspace, 'desktop-portable.md')
+    await writeFile(guide, '# Portable edition\n', 'utf8')
+    const plan = await assemblePortable({
+      unpackedDirectory: unpacked,
+      destination: join(workspace, 'edition'),
+      archive: join(workspace, 'edition.zip'),
+      documents: [guide],
+      archiveDirectory: async () => undefined,
+    })
+    expect(await readFile(join(plan.root, 'desktop-portable.md'), 'utf8')).toBe('# Portable edition\n')
+    expect(await readdir(plan.root)).toContain('portable.json')
+  })
+
+  it('fails before recording the edition when a document is missing', async () => {
+    const workspace = await temporaryRoot('dsh-portable-document-missing-')
+    const unpacked = join(workspace, 'win-unpacked')
+    await writeUnpacked(unpacked, '0.2.2')
+    await expect(assemblePortable({
+      unpackedDirectory: unpacked,
+      destination: join(workspace, 'edition'),
+      archive: join(workspace, 'edition.zip'),
+      documents: [join(workspace, 'absent.md')],
+      archiveDirectory: async () => undefined,
+    })).rejects.toThrow(/is not a file/u)
+    expect(await readdir(join(workspace, 'edition'))).not.toContain('portable.json')
   })
 })
 

@@ -156,6 +156,8 @@ pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable
 
 `package:win:x64:portable` reads `win-unpacked` from the target's artifact directory, copies it to `app\`, writes the default `portable.json`, creates the empty data directories, and archives the result as `deepseek-harness-<version>-win-x64-portable.zip` under `.desktop-build\targets\win-x64\portable\`. Pass `--feed <url>` to record an update feed in the manifest.
 
+The edition also carries this guide, both desktop READMEs, and `apps/desktop/AGENTS.md` at its root, beside `portable.json`. Pass `--documents <path,...>` to ship a different set, resolved against the repository root, or an empty value to ship none. An assembly fails rather than ship a partial set.
+
 An unsigned build writes its payload to `unsigned-artifacts\win-unpacked` instead of `artifacts\win-unpacked`, so assemble from that directory explicitly. `pnpm --filter ... exec` runs in `apps\desktop`, which means the path must be absolute:
 
 ```sh

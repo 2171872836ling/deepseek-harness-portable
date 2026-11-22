@@ -156,6 +156,8 @@ pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable
 
 `package:win:x64:portable` 从目标的构建产物目录读取 `win-unpacked`，复制到 `app\`，写出默认 `portable.json`，创建空的 data 目录，并把结果打包为 `.desktop-build\targets\win-x64\portable\` 下的 `deepseek-harness-<version>-win-x64-portable.zip`。传 `--feed <url>` 可把更新源写进清单。
 
+便携版还会把本指南、两份桌面 README 与 `apps/desktop/AGENTS.md` 放在根目录、`portable.json` 旁边。传 `--documents <path,...>` 可换成别的文件集合（相对仓库根解析），传空值则不随包。缺文件时组装直接失败，不会产出半份文档的包。
+
 未签名的构建把载荷写到 `unsigned-artifacts\win-unpacked` 而非 `artifacts\win-unpacked`，因此要显式从该目录组装。`pnpm --filter ... exec` 在 `apps\desktop` 下运行，所以路径必须是绝对路径：
 
 ```sh

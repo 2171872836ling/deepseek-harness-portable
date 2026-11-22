@@ -1,4 +1,4 @@
-﻿/** Build the Windows portable edition from an unpacked Desktop package build. */
+/** Build the Windows portable edition from an unpacked Desktop package build. */
 
 import { spawn } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
@@ -15,6 +15,29 @@ import {
 
 /** Target whose unpacked payload a portable edition ships. */
 const PORTABLE_TARGET = 'win-x64' as const
+
+/** Repository root, the base for the documents a portable edition ships. */
+const REPOSITORY_ROOT = resolve(import.meta.dirname, '..', '..', '..')
+
+/** Documents the assembled edition carries at its root, relative to the repository root. */
+const PORTABLE_DOCUMENTS: readonly string[] = [
+  'docs/user/guide/desktop-portable.md',
+  'docs/user/guide/desktop-portable.zh.md',
+  'apps/desktop/README.md',
+  'apps/desktop/README.zh.md',
+  'apps/desktop/AGENTS.md',
+]
+
+/**
+ * Resolve the documents an assembly carries, honouring an explicit override.
+ * @param {string | undefined} override - Comma-separated repository-relative paths; an empty value ships none.
+ * @returns {readonly string[]} Absolute document paths.
+ */
+function resolveDocuments(override: string | undefined): readonly string[] {
+  if (override === undefined) return PORTABLE_DOCUMENTS.map(document => join(REPOSITORY_ROOT, document))
+  const listed = override.split(',').map(entry => entry.trim()).filter(entry => entry.length > 0)
+  return listed.map(document => resolve(REPOSITORY_ROOT, document))
+}
 
 /**
  * Run the PowerShell archiver for one directory.
@@ -40,6 +63,7 @@ const { values } = parseArgs({
     'unpacked': { type: 'string' },
     'output': { type: 'string' },
     'feed': { type: 'string' },
+    'documents': { type: 'string' },
   },
 })
 
@@ -55,6 +79,7 @@ const plan = await assemblePortable({
   destination,
   archive,
   ...(values.feed === undefined ? {} : { updateFeed: values.feed }),
+  documents: resolveDocuments(values.documents),
   archiveDirectory,
 })
 process.stdout.write(`portable edition: ${plan.root}\nportable archive: ${archive}\n`)

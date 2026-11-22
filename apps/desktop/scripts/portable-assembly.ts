@@ -1,7 +1,7 @@
 /** Assemble the Windows portable edition from an unpacked Desktop build. */
 
 import { copyFile, mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { DEFAULT_PORTABLE_CONFIG, serializePortableConfig, type PortableConfig } from '../src/portable/config.ts'
 import { PORTABLE_MARKER_FILE } from '../src/portable/root.ts'
 import { portableDirectories, resolvePortableLayout } from '../src/portable/layout.ts'
@@ -25,18 +25,21 @@ export function portableArtifactName(version: string, target: 'win-x64'): string
  * @param {string} input.unpackedDirectory - electron-builder unpacked output directory.
  * @param {string} input.destination - Directory that becomes the portable edition root.
  * @param {string | undefined} input.updateFeed - Optional update feed URL written into the manifest.
- * @returns Planned layout, manifest, data directories, and the payload directory to copy.
+ * @param {readonly string[] | undefined} input.documents - Files to place at the edition root beside the manifest.
+ * @returns Planned layout, manifest, data directories, root documents, and the payload directory to copy.
  */
 export function portableAssemblyPlan(input: {
   unpackedDirectory: string
   destination: string
   updateFeed?: string
+  documents?: readonly string[]
 }): {
   root: string
   app: string
   configFile: string
   manifest: PortableConfig
   directories: readonly string[]
+  documents: readonly { from: string; to: string }[]
   payload: string
 } {
   const root = resolve(input.destination)
@@ -51,6 +54,7 @@ export function portableAssemblyPlan(input: {
     configFile: layout.configFile,
     manifest,
     directories: portableDirectories(layout),
+    documents: (input.documents ?? []).map(from => ({ from: resolve(from), to: join(root, basename(from)) })),
     payload: resolve(input.unpackedDirectory),
   }
 }
@@ -139,6 +143,7 @@ async function copyTree(source: string, destination: string): Promise<void> {
  * @param {string} input.destination - Directory that becomes the portable edition root.
  * @param {string} input.archive - Archive path to create.
  * @param {string | undefined} input.updateFeed - Optional update feed URL written into the manifest.
+ * @param {readonly string[] | undefined} input.documents - Files to place at the edition root beside the manifest.
  * @param {(args: readonly string[]) => Promise<void>} input.archiveDirectory - Runs the archiver for `<archive> <directory>`.
  * @returns {Promise<ReturnType<typeof portableAssemblyPlan>>} The assembled plan.
  */
@@ -147,6 +152,7 @@ export async function assemblePortable(input: {
   destination: string
   archive: string
   updateFeed?: string
+  documents?: readonly string[]
   archiveDirectory: (args: readonly string[]) => Promise<void>
 }): Promise<ReturnType<typeof portableAssemblyPlan>> {
   const plan = portableAssemblyPlan(input)
@@ -156,6 +162,14 @@ export async function assemblePortable(input: {
   }
   for (const directory of plan.directories) await mkdir(directory, { recursive: true })
   await copyTree(plan.payload, plan.app)
+  // Documents ship beside the manifest: a missing source fails the assembly before the edition records itself.
+  for (const document of plan.documents) {
+    const source = await stat(document.from).catch(() => undefined)
+    if (source?.isFile() !== true) {
+      throw new Error(`portable assemble: document ${document.from} is not a file`)
+    }
+    await copyFile(document.from, document.to)
+  }
   await writeFile(plan.configFile, serializePortableConfig(plan.manifest), { encoding: 'utf8', mode: 0o600 })
   await input.archiveDirectory([input.archive, plan.root])
   return plan
