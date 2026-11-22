@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { onTestFinished, describe, expect, it } from 'vitest'
 import { DEFAULT_PORTABLE_CONFIG, parsePortableConfig } from '../src/portable/config.ts'
 import {
+  asarPackageVersion,
   assemblePortable,
   portableArtifactName,
   portableAssemblyPlan,
@@ -22,6 +23,33 @@ async function writeUnpacked(directory: string, version: string): Promise<void> 
   await mkdir(join(directory, 'resources', 'app'), { recursive: true })
   await writeFile(join(directory, 'DSH.exe'), 'exe\n', 'utf8')
   await writeFile(join(directory, 'resources', 'app', 'package.json'), JSON.stringify({ name: 'dsh-desktop', version }), 'utf8')
+}
+
+/** Build an asar image that carries a single packed `package.json`. */
+function asarImage(manifest: object, legacy = false, offsetAsString = false): Buffer {
+  const payload = Buffer.from(JSON.stringify(manifest), 'utf8')
+  const entry = { size: payload.length, offset: offsetAsString ? '0' : 0 }
+  const json = Buffer.from(JSON.stringify({ files: { 'package.json': entry } }), 'utf8')
+  if (legacy) {
+    const sizes = Buffer.alloc(8)
+    sizes.writeUInt32LE(4, 0)
+    sizes.writeUInt32LE(json.length, 4)
+    return Buffer.concat([sizes, json, payload])
+  }
+  const outer = Buffer.alloc(8)
+  outer.writeUInt32LE(4, 0)
+  outer.writeUInt32LE(8 + json.length, 4)
+  const inner = Buffer.alloc(8)
+  inner.writeUInt32LE(4 + json.length, 0)
+  inner.writeUInt32LE(json.length, 4)
+  return Buffer.concat([outer, inner, json, payload])
+}
+
+/** Write a packaged payload, which packs everything into `resources/app.asar`. */
+async function writePackaged(directory: string, manifest: object): Promise<void> {
+  await mkdir(join(directory, 'resources'), { recursive: true })
+  await writeFile(join(directory, 'DSH.exe'), 'exe\n', 'utf8')
+  await writeFile(join(directory, 'resources', 'app.asar'), asarImage(manifest))
 }
 
 describe('portable assembly plan', () => {
@@ -77,5 +105,41 @@ describe('portable assembly', () => {
       archive: join(workspace, 'edition.zip'),
       archiveDirectory: async () => undefined,
     })).rejects.toThrow(/not a directory/u)
+  })
+
+  it('reads the version out of the archive a packaged build ships', async () => {
+    const workspace = await temporaryRoot('dsh-portable-packaged-')
+    const unpacked = join(workspace, 'win-unpacked')
+    await writePackaged(unpacked, { name: 'dsh-desktop', version: '0.2.2-rc.5' })
+    expect(await readUnpackedVersion(unpacked)).toBe('0.2.2-rc.5')
+  })
+
+  it('refuses an archive that carries no manifest', async () => {
+    const workspace = await temporaryRoot('dsh-portable-manifestless-')
+    const unpacked = join(workspace, 'win-unpacked')
+    await writePackaged(unpacked, { name: 'dsh-desktop' })
+    await expect(readUnpackedVersion(unpacked)).rejects.toThrow(/declares no version/u)
+  })
+})
+
+describe('asar manifest', () => {
+  it('reads a packed package.json version', () => {
+    expect(asarPackageVersion(asarImage({ name: 'dsh-desktop', version: '9.9.9' }))).toBe('9.9.9')
+  })
+
+  it('reads an archive whose header stores the JSON without a pickle', () => {
+    expect(asarPackageVersion(asarImage({ name: 'dsh-desktop', version: '9.9.9' }, true))).toBe('9.9.9')
+  })
+
+  it('reads an entry whose offset is a decimal string, as asar writes them', () => {
+    expect(asarPackageVersion(asarImage({ name: 'dsh-desktop', version: '9.9.9' }, false, true))).toBe('9.9.9')
+  })
+
+  it('reports no version for an image without a package.json entry', () => {
+    expect(asarPackageVersion(asarImage({ name: 'dsh-desktop' }))).toBeUndefined()
+  })
+
+  it('reports no version for an image that is not an archive', () => {
+    expect(asarPackageVersion(Buffer.from('plain text', 'utf8'))).toBeUndefined()
   })
 })
