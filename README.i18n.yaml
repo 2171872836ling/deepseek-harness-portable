@@ -2,33 +2,42 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
-/deepseek-harness:
-  en: 97070aa6c0c785c8
-  zh: 6e47d779637aa8b7
-/deepseek-harness/developer-preview:
-  en: 4ef4d8a71ac143f0
-  zh: 1bfc3149ba8e5543
-/deepseek-harness/run:
-  en: 4e0248e4c6474fc6
-  zh: eb2fb8d78c7d6bc0
-/deepseek-harness/run/run-from-npm:
-  en: e22005cd42e6cbad
-  zh: 0f536f4208df1d60
-/deepseek-harness/run/run-from-source:
-  en: 819e3f7c144d0d64
-  zh: de815f040975dba7
-/deepseek-harness/community-and-support:
-  en: 20acf6451fdc869b
-  zh: d06246dd019ecef7
-/deepseek-harness/contributing:
-  en: cabc2d3e9f8898bd
-  zh: 83b6d238bae29ce3
-/deepseek-harness/development:
+/deepseek-harness-portable:
+  en: fbd9a1ecfed918b1
+  zh: d92c15336a9a49f9
+/deepseek-harness-portable/what-this-fork-adds:
+  en: a2ad70ad0d860e6e
+  zh: fda75398a940e5ad
+/deepseek-harness-portable/how-it-works:
+  en: 589fc0154e0e4360
+  zh: 6d8b96cdf649ae7d
+/deepseek-harness-portable/build-the-portable-edition:
+  en: 6eb80e4a6d361843
+  zh: 41e068c095c00986
+/deepseek-harness-portable/use-it:
+  en: 263f79f76e4fdd19
+  zh: 9793ae5a50cd755d
+/deepseek-harness-portable/upstream-project:
+  en: aa428121709b8555
+  zh: 7fc98d6b2818a0f8
+/deepseek-harness-portable/upstream-project/run-upstream-from-npm:
+  en: 743b642fbe58700d
+  zh: c52ec1ed7a3fc34b
+/deepseek-harness-portable/upstream-project/run-this-checkout-from-source:
+  en: 63a34313d7fd08ce
+  zh: 251e03d5fe569ea5
+/deepseek-harness-portable/community-and-support:
+  en: eb1c32d950cb5522
+  zh: d0ce4f3b3d396b11
+/deepseek-harness-portable/contributing:
+  en: 36d1048d8882e820
+  zh: 4e0e9f85cab26328
+/deepseek-harness-portable/development:
   en: 803ca2b11b497bed
-  zh: 8b4071eb0e7783ef
-/deepseek-harness/citation:
+  zh: 1ab483b3473190fd
+/deepseek-harness-portable/citation:
   en: 6704e9e5a8d49a91
   zh: 85c9cdd8d56f8e9d
-/deepseek-harness/license:
+/deepseek-harness-portable/license:
   en: 926995344fc1c72b
-  zh: c92fab5abf85932f
+  zh: de1243b2c29f1be3
