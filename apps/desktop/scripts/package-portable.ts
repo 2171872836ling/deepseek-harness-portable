@@ -26,6 +26,9 @@ const PORTABLE_DOCUMENTS: readonly string[] = [
   'apps/desktop/README.md',
   'apps/desktop/README.zh.md',
   'apps/desktop/AGENTS.md',
+  'LICENSE',
+  'NOTICE.md',
+  'THIRD_PARTY_NOTICES.md',
 ]
 
 /**

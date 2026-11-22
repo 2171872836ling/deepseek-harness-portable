@@ -168,6 +168,22 @@ describe('portable assembly', () => {
     })).rejects.toThrow(/is not a file/u)
     expect(await readdir(join(workspace, 'edition'))).not.toContain('portable.json')
   })
+
+  it('ships the license files that distribution requires beside the manifest', async () => {
+    const workspace = await temporaryRoot('dsh-portable-license-')
+    const unpacked = join(workspace, 'win-unpacked')
+    await writeUnpacked(unpacked, '0.2.2')
+    const license = join(workspace, 'LICENSE')
+    await writeFile(license, 'MIT License\n', 'utf8')
+    const plan = await assemblePortable({
+      unpackedDirectory: unpacked,
+      destination: join(workspace, 'edition'),
+      archive: join(workspace, 'edition.zip'),
+      documents: [license],
+      archiveDirectory: async () => undefined,
+    })
+    expect(await readFile(join(plan.root, 'LICENSE'), 'utf8')).toBe('MIT License\n')
+  })
 })
 
 describe('asar manifest', () => {

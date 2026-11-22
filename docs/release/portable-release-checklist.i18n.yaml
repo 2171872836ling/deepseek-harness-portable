@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for portable-release-checklist.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/release/portable-release-checklist.md
+/portable-edition-release-checklist:
+  en: b71b15c4d5c11cc3
+  zh: 22b7dd187fa643af
+/portable-edition-release-checklist/before-building:
+  en: f1c1226d6280fe82
+  zh: e012946e32b38f06
+/portable-edition-release-checklist/build:
+  en: 4129af008e9dfeda
+  zh: 486a6f90b212b94d
+/portable-edition-release-checklist/checksums:
+  en: b90a690e7c216706
+  zh: 502c3aae62a715de
+/portable-edition-release-checklist/release-notes:
+  en: d86e934d1303ff1c
+  zh: 83f6685d2dbed430
+/portable-edition-release-checklist/publishing:
+  en: 148a6712f5c969d8
+  zh: dc4d9d10cc365e41

@@ -2,6 +2,8 @@
 
 [English](README.md) | 中文
 
+**非官方构建。** `deepseek-harness-portable` 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 fork，增加了 Windows 便携版。本仓库不由 DeepSeek 发布、认可或支持。上游项目采用 MIT 许可，见 [LICENSE](LICENSE) 与 [NOTICE.md](NOTICE.md)。
+
 DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
 
 它构建于**一切皆插件**的架构之上，由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
