@@ -81,6 +81,14 @@ Startup reads the drive's free space and warns in `logs\portable\portable.log` w
 
 Portable mode also stops the writes that Windows only accepts in a user profile: no file-association registration, no default-protocol registration, no login item, no `PATH` entry for the `dsh` command, no uninstall registry entry, and no crash reporter. Uninstalling the portable edition is deleting the folder. Add the drive's `runtime\cli\bin` folder to `PATH` yourself if you want the command on the host.
 
+### Plugin files the edition cannot redirect
+
+Plugins installed through the marketplace are redirected: the plugin manager resolves their packages inside `data\profiles\desktop\`, and pnpm reads `npm_config_cache` and `pnpm_config_store_dir`, so their downloads, dependencies, lockfiles, and `node_modules` trees stay on the drive.
+
+A plugin that composes its own path from the operating system, though, writes wherever that path points. A plugin calling `os.homedir()` with a literal `.dsh` segment receives the host's user profile, because the environment variable the portable edition rewrites is `DSH_HOME`, not `USERPROFILE`. Files like `%USERPROFILE%\.dsh\<plugin-state>` therefore appear on the host disk while the edition runs from the drive.
+
+The redirect cannot prevent this. `USERPROFILE`, `HOMEDRIVE`, and `HOMEPATH` are read by the operating system and by every process the edition starts, so pointing them at the drive would move unrelated tools and programs along with them, and a plugin that resolves the profile through a Windows API rather than an environment variable ignores them anyway. The edition therefore reports the behavior instead of hiding it: check the plugin's own settings for a data-directory option, or accept the file in the user profile.
+
 ## 4. Updates
 
 The portable updater downloads into `updates\downloads\` and installs into `updates\staging\`. Installing an update writes `updates\apply.json` before the application exits; a helper process then replaces `app\` with the staged build and relaunches. The next start settles the transaction:
@@ -119,7 +127,11 @@ pnpm --filter @deepseek-ai/dsh-desktop exec tsx src/portable/snapshot-cli.ts cre
 pnpm --filter @deepseek-ai/dsh-desktop exec tsx src/portable/snapshot-cli.ts restore E:\DSH latest
 ```
 
-Each snapshot records the file count and byte count it holds. `restore` verifies the snapshot before touching the drive, moves the current home to `backup\restore\<timestamp>\`, copies the snapshot into place, and verifies the copy; any mismatch puts the previous home back. The newest three snapshots are kept. The same commands are available through `scripts/portable-backup.ts`, which takes the portable root as its first argument.
+Each snapshot records the file count and byte count it holds. `restore` verifies the snapshot before touching the drive, moves the current home to `backup\restore\<timestamp>\`, copies the snapshot into place, and verifies the copy; any mismatch puts the previous home back. The newest three snapshots are kept. `scripts/portable-backup.ts` wraps the same commands for a shell outside the workspace; it takes the portable root first and the subcommand second:
+
+```sh
+node --import tsx/esm apps/desktop/scripts/portable-backup.ts E:\DSH list
+```
 
 ## 7. Installing onto a removable drive
 
@@ -144,16 +156,8 @@ pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable
 
 `package:win:x64:portable` reads `win-unpacked` from the target's artifact directory, copies it to `app\`, writes the default `portable.json`, creates the empty data directories, and archives the result as `deepseek-harness-<version>-win-x64-portable.zip` under `.desktop-build\targets\win-x64\portable\`. Pass `--feed <url>` to record an update feed in the manifest.
 
-## 9. Troubleshooting
+An unsigned build writes its payload to `unsigned-artifacts\win-unpacked` instead of `artifacts\win-unpacked`, so assemble from that directory explicitly. `pnpm --filter ... exec` runs in `apps\desktop`, which means the path must be absolute:
 
-| Symptom | Cause and fix |
-| --- | --- |
-| Startup reports that the drive is unusable | The drive is read-only, full, or removed. Check the drive, then start again; the application never falls back to the user profile. |
-| Startup reports an unsupported layout revision | The manifest was written by a newer release. Run that release, or reset `portable.json` to the documented layout. |
-| Startup reports an unsafe directory | A manifest field is absolute or climbs out of the portable root. Correct the field; `backup\` holds the previous manifest. |
-| `logs\portable\portable.log` reports few free bytes | Less than 512 MiB remains on the drive. Move sessions or plugin installs elsewhere, or use a larger drive; the launch itself still succeeded. |
-| Data still appears under your user profile | `portableMode` is `false`, or `portable.json` is missing and the application ran as a normal installation. |
-| A plugin writes into your user profile | Third-party plugins can build paths from `os.homedir()` themselves. The redirect covers the Harness home, the Electron paths, and the package-manager caches; it cannot rewrite a path a plugin composes on its own. Use the plugin's settings to move its data, or accept the file in the profile. |
-| Sessions from before a drive change are missing | Check `logs\portable\relocation-<timestamp>.log`; a group whose directory name did not match its recorded working directory is left in place on purpose. |
-| An update did not install | Read `logs\portable\update-<timestamp>.log`; the record in `updates\apply.json` names the staged and backup directories. |
-| Data appears outside the drive without a diagnostic | Directory containment is checked lexically, so a junction or symbolic link placed inside the portable folder points outside it. Keep the portable folder free of links. |
+```sh
+pnpm --filter @deepseek-ai/dsh-desktop exec tsx scripts/package-portable.ts --unpacked C:\path\to\.desktop-build\targets\win-x64\unsigned-artifacts\win-unpacked
+```

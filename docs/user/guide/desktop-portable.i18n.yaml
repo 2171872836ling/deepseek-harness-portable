@@ -14,6 +14,9 @@
 /portable-edition-windows/3-what-moves-onto-the-drive:
   en: 56adcffa7eec0a4c
   zh: a9ee9ec0e863b596
+/portable-edition-windows/3-what-moves-onto-the-drive/plugin-files-the-edition-cannot-redirect:
+  en: 2315baba188de11c
+  zh: 65bfd9c41658e94c
 /portable-edition-windows/4-updates:
   en: c98d4b1339c66d3c
   zh: eebe65c974ece016
@@ -24,14 +27,11 @@
   en: 54be75f4e6b99d98
   zh: 6b03a06dd40187c0
 /portable-edition-windows/6-backups-and-restore:
-  en: c09359bd5268a640
-  zh: 36d3a38fdb7606fb
+  en: 4518f9e9a681a964
+  zh: fe0512de2f60f9ad
 /portable-edition-windows/7-installing-onto-a-removable-drive:
   en: 15e64713e45eed22
   zh: 4a61211f060567e5
 /portable-edition-windows/8-building-a-portable-edition:
-  en: 413b349d26add301
-  zh: 3d9ad8774ff1434b
-/portable-edition-windows/9-troubleshooting:
-  en: 297b9a664b86ed1d
-  zh: ef996551cb8e56c2
+  en: 5ffe6c6ee8ad94aa
+  zh: 6649b4ab3b92fcbf

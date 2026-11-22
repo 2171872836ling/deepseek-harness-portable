@@ -280,7 +280,11 @@ Windows 卸载程序会随应用一起删除 Electron 用户数据目录（`%APP
 
 `apps/desktop/src/portable/` 负责根目录识别、清单、布局、环境变量、启动迁移、已记录路径的搬迁、快照、安装与更新事务。`bootstrap.ts` 同步执行，使 Electron 无法在重定向之前创建目录；`layout.ts` 从 `process.execPath` 重新推导每个路径，因此更换盘符无需修改任何配置；`relocation.ts` 在盘符变化后改写已记录的根与会话头；`backup.ts` 复制并恢复 Harness home；`install.ts` 在向卷上复制之前先校验该卷；`apply.ts` 由脱离的 Node 帮手完成目录替换，因为正在运行的应用无法重命名装着自身代码的目录。`portable.json` 从不保存绝对路径，更新也从不重写它。
 
-`pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable` 经 `apps/desktop/scripts/portable-assembly.ts` 组装便携版：把解包后的 Windows 构建复制到 `app\`，写入清单，创建数据目录并归档结果。`scripts/portable-install.ts` 在校验目标之后把该载荷复制到可移动卷，`src/portable/snapshot-cli.ts` 用于列出、创建与恢复整卷快照。
+导入按用户安装的迁移只统计本次启动之前就已存在的内容。`bootstrap.ts` 在壳模块体执行前创建 `data\`、`data\downloads` 与 `data\user-data`，因此若把空目录算作用户数据，恰恰会在最该执行迁移的那次启动上跳过迁移。
+
+自行拼路径的插件会把文件写到卷外。`portableEnvironment` 改写的是 `DSH_HOME`、`TEMP` 与包管理器缓存；调用 `os.homedir()` 的插件拿到的是宿主机配置目录，而 `USERPROFILE` 保持不变，因为操作系统与每个子进程都会读取它。重定向只报告这一行为而不掩盖它。
+
+`pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable` 经 `apps/desktop/scripts/portable-assembly.ts` 组装便携版：把解包后的 Windows 构建复制到 `app\`，写入清单，创建数据目录并归档结果。`scripts/portable-install.ts` 在校验目标之后把该载荷复制到可移动卷，`src/portable/snapshot-cli.ts` 用于列出、创建与恢复整卷快照。未签名的构建把 `win-unpacked` 放在 `unsigned-artifacts\` 而非 `artifacts\` 下。
 
 <a id="updates"></a>
 

@@ -81,6 +81,14 @@ DeepSeek-Harness-<version>-portable\
 
 便携模式同时停止那些 Windows 只允许写在用户配置里的写入：不注册文件关联、不注册默认协议、不设登录项、不为 `dsh` 命令写 `PATH`、不写卸载注册表项、不启用崩溃上报。卸载便携版就是删除文件夹。若要在宿主机使用该命令，请自行把磁盘上的 `runtime\cli\bin` 加入 `PATH`。
 
+### 无法重定向的插件文件
+
+通过插件市场安装的插件是受控的：插件管理器把它们的包解析在 `data\profiles\desktop\` 内，pnpm 读取 `npm_config_cache` 与 `pnpm_config_store_dir`，因此它们的下载、依赖、锁文件与 `node_modules` 目录树都留在磁盘上。
+
+但自行拼路径的插件会写到那个路径所指向的地方。用 `os.homedir()` 拼上 `.dsh` 段的插件，拿到的是宿主机的用户配置目录，因为便携版改写的是 `DSH_HOME` 环境变量，而不是 `USERPROFILE`。于是 `%USERPROFILE%\.dsh\<插件状态>` 这类文件会在便携版从磁盘运行的同时出现在宿主机磁盘上。
+
+重定向无法阻止这一点。`USERPROFILE`、`HOMEDRIVE` 与 `HOMEPATH` 由操作系统和便携版启动的每个进程读取，把它们指向磁盘会连带挪走无关的工具与程序；而通过 Windows API 而非环境变量解析配置目录的插件，本来也不会理会它们。因此便携版报告这一行为而不去掩盖它：查看插件自身的设置里是否有数据目录选项，或接受该文件留在用户配置目录。
+
 ## 4. 更新
 
 便携更新器下载到 `updates\downloads\`，安装到 `updates\staging\`。安装更新时，应用会在退出前写出 `updates\apply.json`；随后一个帮手进程用暂存构建替换 `app\` 并重新启动。下一次启动会结清这笔事务：
@@ -119,7 +127,11 @@ pnpm --filter @deepseek-ai/dsh-desktop exec tsx src/portable/snapshot-cli.ts cre
 pnpm --filter @deepseek-ai/dsh-desktop exec tsx src/portable/snapshot-cli.ts restore E:\DSH latest
 ```
 
-每份快照记录它包含的文件数与字节数。`restore` 在触碰磁盘之前先校验快照，把当前主目录移到 `backup\restore\<时间戳>\`，复制快照到位并再次校验；一旦不一致就把原来的主目录放回去。永远保留最新三份快照。同样的命令也可通过 `scripts/portable-backup.ts` 使用，第一个参数是便携根。
+每份快照记录它包含的文件数与字节数。`restore` 在触碰磁盘之前先校验快照，把当前主目录移到 `backup\restore\<时间戳>\`，复制快照到位并再次校验；一旦不一致就把原来的主目录放回去。永远保留最新三份快照。`scripts/portable-backup.ts` 供工作区之外的 shell 使用同样的命令；第一个参数是便携根，第二个是子命令：
+
+```sh
+node --import tsx/esm apps/desktop/scripts/portable-backup.ts E:\DSH list
+```
 
 ## 7. 安装到可移动磁盘
 
@@ -144,16 +156,8 @@ pnpm --filter @deepseek-ai/dsh-desktop run package:win:x64:portable
 
 `package:win:x64:portable` 从目标的构建产物目录读取 `win-unpacked`，复制到 `app\`，写出默认 `portable.json`，创建空的 data 目录，并把结果打包为 `.desktop-build\targets\win-x64\portable\` 下的 `deepseek-harness-<version>-win-x64-portable.zip`。传 `--feed <url>` 可把更新源写进清单。
 
-## 9. 故障排查
+未签名的构建把载荷写到 `unsigned-artifacts\win-unpacked` 而非 `artifacts\win-unpacked`，因此要显式从该目录组装。`pnpm --filter ... exec` 在 `apps\desktop` 下运行，所以路径必须是绝对路径：
 
-| 现象 | 原因与处理 |
-| --- | --- |
-| 启动报告磁盘不可用 | 磁盘只读、已满或已拔出。检查磁盘后重试；应用绝不回退到用户配置目录。 |
-| 启动报告不支持的布局版本 | 清单由更新版本写出。改用该版本运行，或把 `portable.json` 重置为文档所述的布局。 |
-| 启动报告不安全的目录 | 清单某个字段是绝对路径或跳出了便携根。改正该字段；`backup\` 里有上一份清单。 |
-| `logs\portable\portable.log` 报告剩余空间很少 | 磁盘剩余不足 512 MiB。把会话或插件安装挪走，或换更大的磁盘；启动本身仍然成功。 |
-| 数据仍出现在用户配置目录 | `portableMode` 为 `false`，或 `portable.json` 缺失，应用按普通安装运行了。 |
-| 插件把文件写进了用户主目录 | 第三方插件可能自行用 `os.homedir()` 拼路径。重定向覆盖的是 Harness home、Electron 各路径和包管理器缓存，改不了插件自己拼出来的路径。用该插件的设置把数据位置挪走，或接受该文件留在用户配置目录。 |
-| 换盘后找不到旧会话 | 查看 `logs\portable\relocation-<时间戳>.log`；目录名与其记录的工作目录不一致的会话组会被有意留在原位。 |
-| 更新没有装上 | 读 `logs\portable\update-<时间戳>.log`；`updates\apply.json` 里的记录会给出暂存目录与备份目录。 |
-| 数据在没有诊断的情况下出现在磁盘之外 | 目录归属按字面路径判断，因此放在便携文件夹内的目录联接或符号链接会指向外部。请保持便携文件夹内没有链接。 |
+```sh
+pnpm --filter @deepseek-ai/dsh-desktop exec tsx scripts/package-portable.ts --unpacked C:\path\to\.desktop-build\targets\win-x64\unsigned-artifacts\win-unpacked
+```
