@@ -3,8 +3,8 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/user/guide/desktop-portable.md
 /portable-edition-windows:
-  en: 96ce46582b27dc41
-  zh: e869eb27d8e265f5
+  en: 5058970c4ddf4ea0
+  zh: 37f954d68ce12802
 /portable-edition-windows/1-what-the-portable-edition-is:
   en: 10791fd01ad0fcf0
   zh: e44455ff2f5eab9e

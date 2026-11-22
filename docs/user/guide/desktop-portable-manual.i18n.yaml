@@ -1,0 +1,49 @@
+# Bilingual-pair consistency record for desktop-portable-manual.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/user/guide/desktop-portable-manual.md
+/portable-edition-user-manual:
+  en: 8a6b8a263e768ad6
+  zh: 732691b883772d99
+/portable-edition-user-manual/1-what-you-received:
+  en: b04d387ff74232d1
+  zh: a55a9d7e8123c69c
+/portable-edition-user-manual/2-before-you-start:
+  en: ff87a4c9309be064
+  zh: 241cdbb397f3a6ea
+/portable-edition-user-manual/2-before-you-start/if-smartscreen-blocks-the-start:
+  en: 9f73d50e8d85beef
+  zh: 3b987607518c360e
+/portable-edition-user-manual/2-before-you-start/if-the-drive-is-write-protected:
+  en: 7ebba20b0f7fbdfa
+  zh: 1608ff8f216fe0fc
+/portable-edition-user-manual/3-first-start:
+  en: 2d768cb5c2657603
+  zh: 1731f9d0d9e13337
+/portable-edition-user-manual/4-your-first-conversation:
+  en: 74269e8f3b68694d
+  zh: b84ed7bf172afa63
+/portable-edition-user-manual/5-what-lives-where:
+  en: a4f581aa14b281a5
+  zh: 62634fa600276d60
+/portable-edition-user-manual/6-moving-the-drive-to-another-computer:
+  en: 024ba33c6db011f5
+  zh: fd6fdc400f209d3b
+/portable-edition-user-manual/7-when-the-drive-letter-changes:
+  en: 5cd5224b2ebfbd62
+  zh: d2ca4114c4c38e1b
+/portable-edition-user-manual/8-backups:
+  en: 17f1899e7cd66675
+  zh: e8dd2595410cf1de
+/portable-edition-user-manual/9-updates:
+  en: bf46600ff6d23194
+  zh: c0b0baba816486d7
+/portable-edition-user-manual/10-plugin-limits:
+  en: 050b7b48f251385f
+  zh: 239e87b1d25b107a
+/portable-edition-user-manual/11-uninstalling:
+  en: dc0c287c80f95c50
+  zh: 105cc6e2f1ebe804
+/portable-edition-user-manual/12-when-something-goes-wrong:
+  en: 9ee541d74a79c648
+  zh: e750ca03d545f189

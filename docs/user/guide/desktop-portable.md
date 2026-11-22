@@ -4,6 +4,8 @@ English | [中文](desktop-portable.zh.md)
 
 The portable edition runs DeepSeek Harness from a removable drive and keeps everything it writes on that drive. Sessions, credentials, plugins, caches, logs, and updates all live beside the application, so moving the drive to another computer or letter changes nothing but the drive letter itself.
 
+This page describes the feature and how it is built. For the day-to-day account — unpacking, first start, where your files went, moving the drive, updating, and troubleshooting — read the [portable edition manual](desktop-portable-manual.md).
+
 ## 1. What the portable edition is
 
 An unpacked portable edition looks like this. The `portable.json` manifest in section 2 is what turns the folder into a portable edition; without it the application behaves like a normal installation and writes to your user profile.

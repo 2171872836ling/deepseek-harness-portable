@@ -23,6 +23,8 @@ const REPOSITORY_ROOT = resolve(import.meta.dirname, '..', '..', '..')
 const PORTABLE_DOCUMENTS: readonly string[] = [
   'docs/user/guide/desktop-portable.md',
   'docs/user/guide/desktop-portable.zh.md',
+  'docs/user/guide/desktop-portable-manual.md',
+  'docs/user/guide/desktop-portable-manual.zh.md',
   'apps/desktop/README.md',
   'apps/desktop/README.zh.md',
   'apps/desktop/AGENTS.md',

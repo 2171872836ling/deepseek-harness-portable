@@ -163,6 +163,14 @@ const homeAndGuide = pairedPages([
     order: 6,
   },
   {
+    source: 'docs/user/guide/desktop-portable-manual.md',
+    route: 'guide/desktop-portable-manual.md',
+    label: { root: '便携版使用手册', en: 'Portable edition manual' },
+    sidebar: { root: 'zh-guide', en: 'en-guide' },
+    section: { root: '入门', en: 'Guide' },
+    order: 7,
+  },
+  {
     source: 'docs/user/guide/python-sdk.md',
     route: 'guide/python-sdk.md',
     label: { root: 'Python', en: 'Python' },
